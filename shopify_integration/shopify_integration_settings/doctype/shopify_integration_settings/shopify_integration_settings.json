@@ -1,0 +1,251 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:shop_name",
+ "creation": "2024-04-10 23:22:58.424848",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "order_edit_webhook",
+  "shop_name",
+  "api_version",
+  "api_key",
+  "api_secret",
+  "access_token",
+  "order_edit_webhook_endpoint",
+  "order_fulfillment_webhook_endpoint",
+  "webhook_secret",
+  "section_break_avof",
+  "shopify_fulfillment_statuses_to_exclude",
+  "defaults_tab",
+  "company",
+  "default_customer_type",
+  "marketplace",
+  "default_uom",
+  "default_tax_charge_type",
+  "default_payment_account",
+  "default_cost_center",
+  "default_paid_from_usd",
+  "column_break_wxwz",
+  "default_item_group",
+  "shopify_expense_parent_account",
+  "default_tax_account",
+  "backlog_warehouse",
+  "parent_3_pl_warehouse",
+  "price_list",
+  "pickup_order_indicator",
+  "sync_setting_tab",
+  "order_syncing_start_date",
+  "sync_orders",
+  "order_sync_duration"
+ ],
+ "fields": [
+  {
+   "fieldname": "shop_name",
+   "fieldtype": "Data",
+   "label": "Shop Name",
+   "unique": 1
+  },
+  {
+   "fieldname": "api_version",
+   "fieldtype": "Data",
+   "label": "API Version"
+  },
+  {
+   "fieldname": "api_key",
+   "fieldtype": "Data",
+   "label": "API Key"
+  },
+  {
+   "fieldname": "api_secret",
+   "fieldtype": "Data",
+   "label": "API Secret"
+  },
+  {
+   "fieldname": "access_token",
+   "fieldtype": "Password",
+   "label": "Access Token"
+  },
+  {
+   "fieldname": "marketplace",
+   "fieldtype": "Link",
+   "label": "Marketplace",
+   "options": "Marketplace"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "default_customer_type",
+   "fieldtype": "Data",
+   "label": "Default Customer type"
+  },
+  {
+   "fieldname": "defaults_tab",
+   "fieldtype": "Tab Break",
+   "label": "Defaults"
+  },
+  {
+   "fieldname": "default_uom",
+   "fieldtype": "Link",
+   "label": "Default UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "default_tax_charge_type",
+   "fieldtype": "Select",
+   "label": "Default Tax Charge Type",
+   "options": "\nActual\nOn Net Total\nOn Previous Row Amount\nOn Previous Row Total\nOn Item Quantity"
+  },
+  {
+   "fieldname": "column_break_wxwz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_item_group",
+   "fieldtype": "Link",
+   "label": "Default Item Group",
+   "options": "Item Group"
+  },
+  {
+   "fieldname": "shopify_expense_parent_account",
+   "fieldtype": "Link",
+   "label": "Shopify Expense Parent Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "default_tax_account",
+   "fieldtype": "Link",
+   "label": "Default Tax Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "sync_setting_tab",
+   "fieldtype": "Tab Break",
+   "label": "Sync Setting"
+  },
+  {
+   "fieldname": "order_syncing_start_date",
+   "fieldtype": "Date",
+   "label": "Order Syncing Start Date"
+  },
+  {
+   "fieldname": "sync_orders",
+   "fieldtype": "Button",
+   "label": "Sync Orders"
+  },
+  {
+   "fieldname": "order_sync_duration",
+   "fieldtype": "Int",
+   "label": "Order Sync Duration"
+  },
+  {
+   "default": "0",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "order_edit_webhook_endpoint",
+   "fieldtype": "Data",
+   "label": "Order Edit Webhook endpoint"
+  },
+  {
+   "fieldname": "backlog_warehouse",
+   "fieldtype": "Link",
+   "label": "Backlog Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "parent_3_pl_warehouse",
+   "fieldtype": "Link",
+   "label": "Parent 3 PL Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "default_payment_account",
+   "fieldtype": "Link",
+   "label": "Default Payment Account",
+   "options": "Account"
+  },
+  {
+   "default": "0",
+   "fieldname": "order_edit_webhook",
+   "fieldtype": "Check",
+   "label": "Order Edit Webhook"
+  },
+  {
+   "fieldname": "order_fulfillment_webhook_endpoint",
+   "fieldtype": "Data",
+   "label": "Order Fulfillment Webhook Endpoint"
+  },
+  {
+   "fieldname": "price_list",
+   "fieldtype": "Link",
+   "label": "Price List",
+   "options": "Price List"
+  },
+  {
+   "fieldname": "default_cost_center",
+   "fieldtype": "Link",
+   "label": "Default Cost Center",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "pickup_order_indicator",
+   "fieldtype": "Data",
+   "label": "Pickup Order Indicator"
+  },
+  {
+   "fieldname": "section_break_avof",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "Orders with these fulfillment statuses will not sync into ERP",
+   "fieldname": "shopify_fulfillment_statuses_to_exclude",
+   "fieldtype": "Table",
+   "label": "Shopify Fulfillment Statuses To Exclude",
+   "options": "Shopify Status To Exclude"
+  },
+  {
+   "fieldname": "default_paid_from_usd",
+   "fieldtype": "Link",
+   "label": "Default Paid From USD",
+   "options": "Account"
+  },
+  {
+   "fieldname": "webhook_secret",
+   "fieldtype": "Password",
+   "label": "Webhook Secret"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-04-21 03:40:54.370957",
+ "modified_by": "Administrator",
+ "module": "Shopify Integration Settings",
+ "name": "Shopify Integration Settings",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

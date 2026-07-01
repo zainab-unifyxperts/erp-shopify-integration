@@ -1,0 +1,112 @@
+mutation fulfillmentCreateV2($fulfillment: FulfillmentV2Input!) {
+  fulfillmentCreateV2(fulfillment: $fulfillment) {
+    fulfillment {
+      id
+      status
+      trackingInfo(first: 250) {
+        company
+        number
+        url
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+
+mutation tagsAdd($id: ID!, $tags: [String!]!) {
+  tagsAdd(id: $id, tags: $tags) {
+    userErrors {
+      field
+      message
+    }
+  }
+}
+
+
+mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
+  webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {
+    userErrors {
+      field
+      message
+    }
+    webhookSubscription {
+      # WebhookSubscription fields
+      	id
+    }
+  }
+}
+
+mutation webhookSubscriptionDelete($id: ID!) {
+  webhookSubscriptionDelete(id: $id) {
+    deletedWebhookSubscriptionId
+    userErrors {
+      field
+      message
+    }
+  }
+}
+
+mutation webhookSubscriptionUpdate($id: ID!, $webhookSubscription: WebhookSubscriptionInput!) {
+  webhookSubscriptionUpdate(id: $id, webhookSubscription: $webhookSubscription) {
+    userErrors {
+      field
+      message
+    }
+    webhookSubscription {
+      id
+    }
+  }
+}
+
+
+
+mutation fulfillmentOrderMove(
+  $id: ID!,
+  $newLocationId: ID!,
+  $fulfillmentOrderLineItems: [FulfillmentOrderLineItemInput!]
+) {
+  fulfillmentOrderMove(
+    id: $id,
+    newLocationId: $newLocationId,
+    fulfillmentOrderLineItems: $fulfillmentOrderLineItems
+  ) {
+    movedFulfillmentOrder {
+      id
+      status
+    }
+    originalFulfillmentOrder {
+      id
+      status
+    }
+    remainingFulfillmentOrder {
+      id
+      status
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+
+
+mutation InventorySet($input: InventorySetQuantitiesInput!) {
+  inventorySetQuantities(input: $input) {
+    inventoryAdjustmentGroup {
+      createdAt
+      reason
+      referenceDocumentUri
+      changes {
+        name
+        delta
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

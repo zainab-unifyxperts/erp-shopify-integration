@@ -1,0 +1,21 @@
+[project]
+name = "shopify_integration"
+authors = [
+    { name = "Raymond Fung", email = "manan@unifyxperts.com"}
+]
+description = "Shopify Integration"
+requires-python = ">=3.10"
+readme = "README.md"
+dynamic = ["version"]
+dependencies = [
+    # "frappe~=15.0.0" # Installed and managed by bench.
+    "ShopifyAPI==12.7.0"
+]
+
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+# These dependencies are only installed when developer mode is enabled
+[tool.bench.dev-dependencies]
+# package_name = "~=1.1.0"

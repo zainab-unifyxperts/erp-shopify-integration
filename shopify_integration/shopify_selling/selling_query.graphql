@@ -1,0 +1,389 @@
+query GetOrdersInfo($nos: Int, $order_query: String, $after: String) {
+  orders(first: $nos, query: $order_query, after: $after) {
+    edges {
+      node {
+        id
+        name
+        displayFulfillmentStatus
+        tags
+        createdAt
+        fullyPaid
+        poNumber
+        note
+        discountCodes
+        discountApplications(first: 20) {
+          edges {
+            node {
+              __typename
+
+              ... on ManualDiscountApplication {
+                title
+                description
+              }
+
+              ... on DiscountCodeApplication {
+                code
+              }
+
+              ... on AutomaticDiscountApplication {
+                title
+              }
+            }
+          }
+        }
+        paymentTerms {
+          paymentTermsName
+          dueInDays
+          paymentSchedules(first: 10) {
+            nodes {
+              dueAt
+              issuedAt
+              completedAt
+            }
+          }
+        }
+        totalWeight
+        taxesIncluded
+        presentmentCurrencyCode
+        cartDiscountAmountSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+          presentmentMoney {   
+          amount
+          currencyCode
+        }
+        }
+        currentSubtotalPriceSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+          presentmentMoney {   
+          amount
+          currencyCode
+        }
+        }
+        currentTotalTaxSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+          presentmentMoney {   
+          amount
+          currencyCode
+        }
+        }
+        currentTotalPriceSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+          presentmentMoney {    
+          amount
+          currencyCode
+        }
+        }
+        currentTotalDutiesSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+          presentmentMoney {   
+          amount
+          currencyCode
+        }
+        }
+        transactions {
+          amountSet {
+            shopMoney {
+              amount
+              currencyCode
+            }
+            presentmentMoney {   
+              amount
+              currencyCode
+            }
+          }
+          gateway
+          createdAt
+          paymentId
+        }
+        customer {
+          displayName
+          email
+          phone
+          companyContactProfiles {
+            id
+            isMainContact
+            company {
+              id
+              name
+              externalId
+            }
+          }
+          addresses(first: 1) {
+            address1
+            address2
+            city
+            province
+            country
+            zip
+          }
+        }
+        lineItems(first: 250) {
+          edges {
+            node {
+              name
+              sku
+              id
+              quantity
+              currentQuantity
+              variant {
+                inventoryItem {
+                  measurement {
+                    weight {
+                      value
+                      unit
+                    }
+                  }
+                }
+              }
+              discountedUnitPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+                presentmentMoney {   
+                  amount
+                  currencyCode
+                }
+              }
+            }
+          }
+        }
+        currentTaxLines {
+          title
+          rate
+          priceSet {
+            shopMoney {
+              amount
+              currencyCode
+            }
+            presentmentMoney {   
+              amount
+              currencyCode
+            }
+          }
+        }
+        taxLines {
+          title
+          rate
+          priceSet {
+            shopMoney {
+              amount
+              currencyCode
+            }
+            presentmentMoney {   
+              amount
+              currencyCode
+            }
+          }
+        }
+        currentTotalDiscountsSet {
+          shopMoney {
+            amount
+            currencyCode
+          }
+          presentmentMoney {   
+            amount
+            currencyCode
+          }
+        }
+        shippingLine {
+          code
+          title
+          originalPriceSet {
+            shopMoney {
+              amount
+              currencyCode
+            }
+            presentmentMoney {   
+              amount
+              currencyCode
+            }
+          }
+          discountedPriceSet {
+            shopMoney {
+              amount
+              currencyCode
+            }
+            presentmentMoney {   
+              amount
+              currencyCode
+            }
+          }
+        }
+        billingAddressMatchesShippingAddress
+        shippingAddress {
+          name
+          address1
+          address2
+          city
+          province
+          country
+          zip
+          phone
+        }
+        billingAddress {
+          name
+          address1
+          address2
+          city
+          province
+          country
+          zip
+          phone
+        }
+      }
+    }
+    pageInfo {
+      endCursor
+      hasNextPage
+    }
+  }
+}
+
+
+query getOrderFulfillment($orderId: ID!) {
+  order(id: $orderId) {
+    fulfillmentOrders(first: 250) {
+      edges {
+        node {
+          id
+          assignedLocation {
+            location {
+              id
+              name
+            }
+          }
+          lineItems(first: 250) {
+            edges {
+              node {
+                id
+                remainingQuantity
+                lineItem {
+                  id
+                  title
+                  quantity # Get quantity from the original line item
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+
+
+query GetOrderLineItems($orderId: ID!) {
+  order(id: $orderId) {
+    id
+    name
+    lineItems(first: 250) {
+      edges {
+        node {
+          id
+          title
+          quantity
+          sku
+          variant {
+            id
+          }
+        }
+      }
+    }
+  }
+}
+
+
+query inventoryItems($nos: Int,$after: String) {
+  inventoryItems(first: $nos,after: $after) {
+    edges {
+      node {
+        id
+        tracked
+        sku
+      }
+    }
+    pageInfo{
+            endCursor
+            hasNextPage
+        }
+  }
+}
+
+query getOrdersStatus($ids: [ID!]!) {
+  nodes(ids: $ids) { 
+    ... on Order { 
+      id name displayFulfillmentStatus 
+    } 
+  } 
+}
+
+query getProductInventoryId{
+  products(first: 250) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        title
+        variants(first: 100) {
+          edges {
+            node {
+              sku
+              inventoryItem {
+                id   
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  locations(first: 10) {
+    edges {
+      node {
+        id   
+        name
+      }
+    }
+  }
+}
+
+query getNextProducts($cursor: String) {
+  products(first: 250, after: $cursor) {
+    pageInfo {
+        hasNextPage
+        endCursor
+      }
+      edges {
+        node {
+          title
+          variants(first: 100) {
+            edges {
+              node {
+                sku
+                inventoryItem { id }
+              }
+            }
+          }
+        }
+      }
+    }
+  }

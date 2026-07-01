@@ -1,0 +1,88 @@
+query GetReverseDelivery($returnId: ID!) {
+  return(id: $returnId) {
+    reverseFulfillmentOrders(first: 1) {
+      edges {
+        node {
+          id
+          lineItems(first: 10) {
+            edges {
+              node {
+                id
+                totalQuantity
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+mutation reverseDeliveryShippingCreate(
+  $rfoId: ID!,
+  $lineItems: [ReverseDeliveryLineItemInput!]!,
+  $label: ReverseDeliveryLabelInput
+) {
+  reverseDeliveryCreateWithShipping(
+    reverseFulfillmentOrderId: $rfoId,
+    reverseDeliveryLineItems: $lineItems,
+    labelInput: $label
+  ) {
+    reverseDelivery {
+      id
+    }
+    userErrors {
+      message
+    }
+  }
+}
+
+
+mutation returnClose($id: ID!) {
+  returnClose(id: $id) {
+    return {
+      id
+      status
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
+
+mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+  metafieldsSet(metafields: $metafields) {
+    metafields {
+      key
+      namespace
+      value
+    }
+    userErrors {
+      field
+      message
+      code
+    }
+  }
+}
+
+
+query GetOrderNote($id: ID!) {
+  order(id: $id) {
+    id
+    note
+  }
+}
+
+mutation OrderUpdate($input: OrderInput!) {
+  orderUpdate(input: $input) {
+    order {
+      id
+      note
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
