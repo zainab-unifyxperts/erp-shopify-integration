@@ -1,5 +1,5 @@
 ## Shopify Integration
-This app fetches and sends data from and to shopify via GraphQL
+This app fetches and sends data from and to shopify via GraphQL.
 
 ### Requirements 
 * Ubuntu v22.04
