@@ -1,12 +1,5 @@
 """
 Webhook endpoints for Shopify order edit / fulfillment events.
-
-Fix vs old webhooks.py: the old code picked settings via
-`{"enabled": 1}` with no store filter - broken as soon as two stores
-(e.g. Alphard Golf + Push Plastic) are enabled at once, since it's
-arbitrary which one gets picked. Shopify sends the store's domain in the
-X-Shopify-Shop-Domain header on every webhook call - we use that to find
-the RIGHT settings doc.
 """
 
 import json

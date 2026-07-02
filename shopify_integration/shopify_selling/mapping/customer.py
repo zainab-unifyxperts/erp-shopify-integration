@@ -1,7 +1,7 @@
 """
 Customer, Contact, and Address mapping: Shopify -> ERPNext.
 
-Fix vs old code: customers are matched by EMAIL first (unique, reliable),
+customers are matched by EMAIL first (unique, reliable),
 falling back to display name only if email is missing. The old code matched
 on displayName alone, which silently merges two different Shopify customers
 that happen to share a name.

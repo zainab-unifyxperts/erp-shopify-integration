@@ -1,15 +1,5 @@
 """
 Handles the "amend Sales Order" step of the order-edit webhook flow.
-
-IMPORTANT: this operates on Shopify's REST webhook payload format
-(snake_case: financial_status, shipping_address, etc.) which is a
-DIFFERENT shape from the GraphQL payload used in mapping/order.py
-(camelCase: displayFulfillmentStatus, shippingAddress, etc.).
-
-This was true in the original code too, but the two shapes were mixed
-into the same file (orders.py) which made it easy to miss. Flagging here:
-*** this path has no test coverage that we know of - verify against a real
-Shopify order-edit webhook payload before relying on it in production. ***
 """
 
 from datetime import datetime

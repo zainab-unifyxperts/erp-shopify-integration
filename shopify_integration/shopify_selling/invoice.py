@@ -1,6 +1,5 @@
 """
 Sales Invoice creation from a submitted Delivery Note.
-Split out of finance.py — this is a different concern from Payment Entry
 sync and doesn't need to live in the same module.
 """
 

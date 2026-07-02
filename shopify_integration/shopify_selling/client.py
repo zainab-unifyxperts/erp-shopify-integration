@@ -1,11 +1,9 @@
 """
 Shopify session + GraphQL execution helper.
 
-Fixes vs old code:
 - Session is guaranteed to clear even on exception (context manager, no leaks)
 - Retries on rate limit (429) and transient network errors with backoff
-- One place that knows how to build a shop_url / session -> no more copy-pasted
-  session boilerplate in every function
+- One place that knows how to build a shop_url / session
 """
 
 import json

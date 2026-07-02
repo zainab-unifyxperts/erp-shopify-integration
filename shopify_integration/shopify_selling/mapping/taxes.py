@@ -1,7 +1,5 @@
 """
 Tax, VAT, duties, shipping and discount row building.
-Consolidated from utils.py + shopify_selling_utils.py (was split across two
-files with overlapping responsibility).
 """
 
 from typing import List, Optional, Tuple

@@ -1,10 +1,8 @@
 """
 Cron entrypoint + fetch-and-sync-orders logic.
 
-Fixes vs old orders.py:
-- No hard dependency on extensiv_integration (removed unused wildcard import)
 - Session guaranteed to close via shopify_session() context manager
-- Retries via client.execute_graphql() instead of one-shot bare calls
+- Retries via client.execute_graphql()
 - Narrower except blocks with real error messages
 """
 

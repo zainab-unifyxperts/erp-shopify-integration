@@ -1,9 +1,7 @@
 """
 Builds an ERPNext Sales Order from a Shopify GraphQL order node.
 
-This replaces the old 300+ line create_shopify_sales_order() in orders.py.
-Same behavior, split into named steps so each piece can be tested/read on
-its own. The public entrypoint is still `create_shopify_sales_order`.
+The entrypoint is still `create_shopify_sales_order`.
 """
 
 import datetime

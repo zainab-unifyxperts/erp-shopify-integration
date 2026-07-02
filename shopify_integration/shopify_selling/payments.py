@@ -1,15 +1,5 @@
 """
 Payment Entry creation from Shopify order transactions.
-
-Merged from your finance.py. Fixes vs original:
-- bare `except:` -> `except Exception:` with real traceback logging (unchanged
-  behavior, just no longer silently swallows non-Shopify errors)
-- setting_doc lookups now use setting_doc_name directly instead of the
-  `{"name": setting_doc_name, "enabled": 1}` filter pattern (works the same,
-  just simpler and doesn't silently return None if the doc got disabled
-  mid-sync)
-- Sales Invoice creation (a separate concern from payments) split into
-  invoice.py
 """
 
 import datetime
