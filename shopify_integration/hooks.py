@@ -1,6 +1,6 @@
 app_name = "shopify_integration"
 app_title = "Shopify Integration"
-app_publisher = "Raymond Fung"
+app_publisher = "Zainab"
 app_description = "Shopify Integration"
 app_email = "manan@unifyxperts.com"
 app_license = "mit"
@@ -231,10 +231,10 @@ app_license = "mit"
 # }
 
 
-doc_events = {
-    "Sales Order":{
-                "on_submit":[
-                    "shopify_integration.shopify_selling.shopify_selling_utils.allocate_fullfillment_order"
-                 ]
-            }
-}
+# doc_events = {
+#     "Sales Order":{
+#                 "on_submit":[
+#                     "shopify_integration.shopify_selling.shopify_selling_utils.allocate_fullfillment_order"
+#                  ]
+#             }
+# }
