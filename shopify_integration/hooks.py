@@ -2,7 +2,7 @@ app_name = "shopify_integration"
 app_title = "Shopify Integration"
 app_publisher = "Zainab"
 app_description = "Shopify Integration"
-app_email = "manan@unifyxperts.com"
+app_email = "zainab@unifyxperts.com"
 app_license = "mit"
 # required_apps = []
 
@@ -142,7 +142,7 @@ app_license = "mit"
 # scheduler_events = {
 #     "cron": {
 #         "*/10 * * * *": [
-#             "shopify_integration.shopify_selling.orders.shopify_order_sync_job"
+#             "shopify_integration.shopify_selling.sync.shopify_order_sync_job"
 #         ]
 #     },
 # }
@@ -150,7 +150,7 @@ app_license = "mit"
 # scheduler_events = {
 #     "cron": {
 #         "*/10 * * * *": [
-#             "shopify_integration.shopify_selling.orders.shopify_order_sync_job"
+#             "shopify_integration.shopify_selling.sync.shopify_order_sync_job"
 #         ]
 #     },
 # }
