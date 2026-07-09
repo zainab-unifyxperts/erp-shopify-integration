@@ -263,7 +263,7 @@ def create_shopify_sales_order(data: dict, setting_doc: str, is_return: bool, sy
 
     _set_sales_type(new_sales_order, data)
 
-    new_sales_order.po_no = data.get("poNumber")
+    #new_sales_order.po_no = data.get("poNumber")
     new_sales_order.selling_price_list = frappe.get_value(
         "Shopify Integration Settings", setting_doc, "price_list"
     )
