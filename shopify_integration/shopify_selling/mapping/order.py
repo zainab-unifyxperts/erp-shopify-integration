@@ -263,16 +263,14 @@ def create_shopify_sales_order(data: dict, setting_doc: str, is_return: bool, sy
 
     _set_sales_type(new_sales_order, data)
 
-    #new_sales_order.po_no = data.get("poNumber")
+    new_sales_order.po_no = data.get("poNumber")
     new_sales_order.selling_price_list = frappe.get_value(
         "Shopify Integration Settings", setting_doc, "price_list"
     )
     new_sales_order.ignore_pricing_rule = 1
     new_sales_order.custom_fully_paid = data.get("fullyPaid")
-    new_sales_order.custom_notes_for_extensiv = data.get("note")
+    new_sales_order.custom_notes = data.get("note")
     new_sales_order.custom_shopify_order_id_number = data.get("id")
-    new_sales_order.custom_do_not_apply_drop_ship_fee = 1
-    new_sales_order.custom_do_not_apply_freight_rates = 1
 
     _set_discount_codes(new_sales_order, data)
 

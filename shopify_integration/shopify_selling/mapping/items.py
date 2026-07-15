@@ -16,18 +16,20 @@ def get_shopify_item_code(sku: str, name: str, setting_doc: str) -> str:
     """
     if frappe.db.exists("Item", {"item_code": sku}):
         return sku
+    else:
+        frappe.log_error(title=f"Sales Order Item does not exist", message=f"Item {sku} does not exist, please create the item.")
 
-    item_doc = frappe.new_doc("Item")
-    item_doc.item_code = sku
-    item_doc.item_name = name
-    item_doc.stock_uom = frappe.get_value(
-        "Shopify Integration Settings", setting_doc, "default_uom"
-    )
-    item_doc.item_group = frappe.get_value(
-        "Shopify Integration Settings", setting_doc, "default_item_group"
-    )
-    item_doc.save()
-    return item_doc.item_code
+    # item_doc = frappe.new_doc("Item")
+    # item_doc.item_code = sku
+    # item_doc.item_name = name
+    # item_doc.stock_uom = frappe.get_value(
+    #     "Shopify Integration Settings", setting_doc, "default_uom"
+    # )
+    # item_doc.item_group = frappe.get_value(
+    #     "Shopify Integration Settings", setting_doc, "default_item_group"
+    # )
+    # item_doc.save()
+    # return item_doc.item_code
 
 
 def create_shopify_so_item_row(data: dict, setting_doc: str) -> Optional[dict]:

@@ -28,6 +28,20 @@ def sync_payment_entries(data:list,sales_order_name:str, setting_doc_name: str =
             "docstatus": 1
         }):
             continue
+
+        is_billed = frappe.db.sql("""
+            SELECT si.name
+            FROM `tabSales Invoice` si
+            INNER JOIN `tabSales Invoice Item` sii
+                ON sii.parent = si.name
+            WHERE
+                sii.sales_order = %s
+                AND si.docstatus = 1
+            LIMIT 1
+        """, sales_order_name)
+
+        if is_billed:
+            continue
     
         create_shopify_payment_entry(transaction,sales_order_name, setting_doc_name)
         
