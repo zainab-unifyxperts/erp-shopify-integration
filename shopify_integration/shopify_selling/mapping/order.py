@@ -269,7 +269,7 @@ def create_shopify_sales_order(data: dict, setting_doc: str, is_return: bool, sy
     )
     new_sales_order.ignore_pricing_rule = 1
     new_sales_order.custom_fully_paid = data.get("fullyPaid")
-    new_sales_order.custom_notes = data.get("note")
+    # new_sales_order.custom_notes = data.get("note")
     new_sales_order.custom_shopify_order_id_number = data.get("id")
 
     _set_discount_codes(new_sales_order, data)

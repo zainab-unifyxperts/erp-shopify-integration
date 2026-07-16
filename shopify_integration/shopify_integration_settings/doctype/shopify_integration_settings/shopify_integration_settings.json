@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_bulk_edit": 1,
  "allow_rename": 1,
  "autoname": "field:shop_name",
  "creation": "2024-04-10 23:22:58.424848",
@@ -9,32 +10,32 @@
   "enabled",
   "order_edit_webhook",
   "shop_name",
-  "api_version",
-  "api_key",
-  "api_secret",
-  "access_token",
   "order_edit_webhook_endpoint",
   "order_fulfillment_webhook_endpoint",
   "webhook_secret",
+  "column_break_dedz",
+  "api_version",
+  "client_id",
+  "client_secret",
+  "access_token",
   "section_break_avof",
   "shopify_fulfillment_statuses_to_exclude",
   "defaults_tab",
   "company",
   "default_customer_type",
-  "marketplace",
+  "default_item_group",
   "default_uom",
-  "default_tax_charge_type",
+  "marketplace",
+  "parent_3_pl_warehouse",
+  "backlog_warehouse",
+  "column_break_wxwz",
+  "shopify_expense_parent_account",
   "default_payment_account",
+  "default_tax_account",
+  "default_tax_charge_type",
   "default_cost_center",
   "default_paid_from_usd",
-  "column_break_wxwz",
-  "default_item_group",
-  "shopify_expense_parent_account",
-  "default_tax_account",
-  "backlog_warehouse",
-  "parent_3_pl_warehouse",
   "price_list",
-  "pickup_order_indicator",
   "sync_setting_tab",
   "order_syncing_start_date",
   "sync_orders",
@@ -51,16 +52,6 @@
    "fieldname": "api_version",
    "fieldtype": "Data",
    "label": "API Version"
-  },
-  {
-   "fieldname": "api_key",
-   "fieldtype": "Data",
-   "label": "API Key"
-  },
-  {
-   "fieldname": "api_secret",
-   "fieldtype": "Data",
-   "label": "API Secret"
   },
   {
    "fieldname": "access_token",
@@ -196,11 +187,6 @@
    "options": "Cost Center"
   },
   {
-   "fieldname": "pickup_order_indicator",
-   "fieldtype": "Data",
-   "label": "Pickup Order Indicator"
-  },
-  {
    "fieldname": "section_break_avof",
    "fieldtype": "Section Break"
   },
@@ -221,11 +207,25 @@
    "fieldname": "webhook_secret",
    "fieldtype": "Password",
    "label": "Webhook Secret"
+  },
+  {
+   "fieldname": "column_break_dedz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_secret",
+   "fieldtype": "Password",
+   "label": "Client Secret"
+  },
+  {
+   "fieldname": "client_id",
+   "fieldtype": "Data",
+   "label": "Client Id"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-21 03:40:54.370957",
+ "modified": "2026-07-16 10:23:21.585806",
  "modified_by": "Administrator",
  "module": "Shopify Integration Settings",
  "name": "Shopify Integration Settings",
@@ -245,6 +245,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

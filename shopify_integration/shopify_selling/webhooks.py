@@ -44,7 +44,7 @@ def shopify_order_edit() -> None:
     raw_data = frappe.request.get_data()
     shopify_webhook_id = frappe.request.headers.get("X-Shopify-Webhook-Id")
 
-    if not verify_webhook(raw_data, hmac_header, setting_doc.get_password("api_secret")):
+    if not verify_webhook(raw_data, hmac_header, setting_doc.get_password("client_secret")):
         raise frappe.AuthenticationError
 
     if frappe.db.exists("Sales Order", {"custom_shopify_webhook_id": shopify_webhook_id}):
@@ -102,7 +102,7 @@ def shopify_fulfillment_create() -> None:
     hmac_header = frappe.request.headers.get("X-Shopify-Hmac-SHA256")
     raw_data = frappe.request.get_data()
 
-    if not verify_webhook(raw_data, hmac_header, setting_doc.get_password("api_secret")):
+    if not verify_webhook(raw_data, hmac_header, setting_doc.get_password("client_secret")):
         raise frappe.AuthenticationError
 
     order_data = json.loads(raw_data.decode("utf-8"))

@@ -1,11 +1,10 @@
 """
-Line item + product bundle mapping: Shopify -> ERPNext Sales Order Items.
+Line item mapping: Shopify -> ERPNext Sales Order Items.
 """
 
 from typing import Optional
 
 import frappe
-from erpnext.stock.doctype.packed_item.packed_item import get_product_bundle_items
 
 from .taxes import _get_money_amount, get_shopify_account  # noqa: F401 (account used by callers)
 
@@ -19,17 +18,16 @@ def get_shopify_item_code(sku: str, name: str, setting_doc: str) -> str:
     else:
         frappe.log_error(title=f"Sales Order Item does not exist", message=f"Item {sku} does not exist, please create the item.")
 
-    # item_doc = frappe.new_doc("Item")
-    # item_doc.item_code = sku
-    # item_doc.item_name = name
-    # item_doc.stock_uom = frappe.get_value(
-    #     "Shopify Integration Settings", setting_doc, "default_uom"
-    # )
-    # item_doc.item_group = frappe.get_value(
-    #     "Shopify Integration Settings", setting_doc, "default_item_group"
-    # )
-    # item_doc.save()
-    # return item_doc.item_code
+
+def extract_pos_serial_no(line_item: dict) -> str | None:
+    """
+    Pulls the Serial No from a Shopify POS line item's custom attributes.
+    Returns None for non-POS / non-serialized line items.
+    """
+    for attr in line_item.get("customAttributes", []):
+        if attr.get("key", "").strip().upper() in ("SN", "SERIAL NUMBER", "SERIAL NO"):
+            return attr.get("value", "").strip() or None
+    return None
 
 
 def create_shopify_so_item_row(data: dict, setting_doc: str) -> Optional[dict]:
@@ -40,13 +38,19 @@ def create_shopify_so_item_row(data: dict, setting_doc: str) -> Optional[dict]:
     if data.get("currentQuantity") == 0:
         return None
 
-    return {
+    row = {
         "item_code": get_shopify_item_code(data["sku"], data["name"], setting_doc),
         "qty": data["currentQuantity"],
         "rate": _get_money_amount(data.get("discountedUnitPriceSet")),
         "custom_sku": data["sku"],
         "custom_shopify_line_item_id": data["id"],
     }
+
+    serial_no = extract_pos_serial_no(data)
+    if serial_no:
+        row["custom_serial_no"] = serial_no
+
+    return row
 
 
 def build_item_rows_from_shopify(
@@ -87,70 +91,12 @@ def build_item_rows_from_shopify(
     return item_rows
 
 
-def expand_bundle_row(ir: dict, new_sales_order) -> bool:
-    """
-    If `ir` (an item row dict) is a Product Bundle, appends its expanded child
-    rows to new_sales_order.items and returns True.
-    Returns False if the item is not a bundle (caller should append ir as-is).
-    """
-    item_code = ir.get("item_code")
-    if not frappe.db.exists("Product Bundle", {"new_item_code": item_code}):
-        return False
-
-    bundle_items = get_product_bundle_items(item_code)
-    if not bundle_items:
-        return False
-
-    ordered_qty = ir.get("qty", 1)
-    shopify_line_item_id = ir.get("custom_shopify_line_item_id")
-    shopify_rate = ir.get("rate") or 0.0
-
-    bundle_doc = frappe.get_doc("Product Bundle", {"new_item_code": item_code})
-    total_bundle_price = sum(
-        child.custom_bundle_price_ or 0.0 for child in bundle_doc.items
-    )
-
-    bundle_price_map = {}
-    for child in bundle_doc.items:
-        if total_bundle_price > 0:
-            share = (child.custom_bundle_price_ or 0.0) / total_bundle_price
-            bundle_price_map[child.item_code] = round(share * shopify_rate, 2)
-        else:
-            bundle_price_map[child.item_code] = 0.0
-
-    for child in bundle_items:
-        rate = bundle_price_map.get(child.item_code) or 0.0
-        new_sales_order.append(
-            "items",
-            {
-                "item_code": child.item_code,
-                "item_name": child.item_name,
-                "qty": child.qty * ordered_qty,
-                "uom": child.uom,
-                "description": child.description,
-                "custom_parent_bundle_item_name": bundle_doc.name,
-                "delivery_date": new_sales_order.delivery_date,
-                "dont_recompute_tax": 1,
-                "custom_shopify_line_item_id": shopify_line_item_id,
-                "rate": rate,
-                "price_list_rate": rate,
-                "base_rate": rate,
-                "base_price_list_rate": rate,
-                "warehouse": ir.get("warehouse"),
-            },
-        )
-    return True
-
-
 def append_item_rows(new_sales_order, item_rows: list[dict]) -> None:
     """
-    Appends item rows to the Sales Order, expanding any Product Bundles
-    into their child items.
+    Appends item rows to the Sales Order.
     """
     for ir in item_rows:
         ir["dont_recompute_tax"] = 1
-        if expand_bundle_row(ir, new_sales_order):
-            continue
         ir["price_list_rate"] = ir.get("rate", 0.0)
         ir["base_price_list_rate"] = ir.get("rate", 0.0)
         ir["base_rate"] = ir.get("rate", 0.0)

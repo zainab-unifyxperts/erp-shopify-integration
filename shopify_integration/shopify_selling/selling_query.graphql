@@ -150,6 +150,10 @@ query GetOrdersInfo($nos: Int, $order_query: String, $after: String) {
                   }
                 }
               }
+              customAttributes {
+                key
+                value
+              }
               discountedUnitPriceSet {
                 shopMoney {
                   amount
