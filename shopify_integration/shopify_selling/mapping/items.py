@@ -48,7 +48,7 @@ def create_shopify_so_item_row(data: dict, setting_doc: str) -> Optional[dict]:
 
     serial_no = extract_pos_serial_no(data)
     if serial_no:
-        row["custom_serial_no"] = serial_no
+        row["serial_no"] = serial_no
 
     return row
 
