@@ -38,7 +38,7 @@ def get_shopify_customer(customer_data: dict, setting_doc: str) -> str:
 
     if not customer_name:
         customer_doc = frappe.new_doc("Customer")
-        customer_doc.customer_name = display_name or email
+        customer_doc.customer_name = display_name or email or "shopify customer"
         customer_doc.customer_type = frappe.get_value(
             "Shopify Integration Settings", setting_doc, "default_customer_type"
         )
