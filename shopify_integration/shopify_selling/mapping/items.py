@@ -28,7 +28,20 @@ def extract_pos_serial_no(line_item: dict) -> str | None:
         if attr.get("key", "").strip().upper() in ("SN", "SERIAL NUMBER", "SERIAL NO"):
             return attr.get("value", "").strip() or None
     return None
+    
 
+def extract_pos_serial_map(data: dict) -> dict[str, str]:
+    """
+    Builds {item_code: serial_no} across all line items in a POS order.
+    Only includes items that actually carry a serial custom attribute.
+    """
+    serial_map = {}
+    for edge in data.get("lineItems", {}).get("edges", []):
+        node = edge.get("node", {})
+        serial_no = extract_pos_serial_no(node)
+        if serial_no and node.get("sku"):
+            serial_map[node["sku"]] = serial_no
+    return serial_map
 
 def create_shopify_so_item_row(data: dict, setting_doc: str) -> Optional[dict]:
     """
@@ -45,10 +58,6 @@ def create_shopify_so_item_row(data: dict, setting_doc: str) -> Optional[dict]:
         "custom_sku": data["sku"],
         "custom_shopify_line_item_id": data["id"],
     }
-
-    serial_no = extract_pos_serial_no(data)
-    if serial_no:
-        row["serial_no"] = serial_no
 
     return row
 

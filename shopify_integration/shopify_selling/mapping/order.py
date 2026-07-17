@@ -8,7 +8,7 @@ import datetime
 
 import frappe
 from frappe.utils import add_months, add_to_date, get_datetime, now_datetime
-
+from shopify_integration.shopify_selling.invoice import create_pos_sales_invoice
 from .customer import get_shopify_address, get_shopify_customer, get_shopify_mo_id
 from .items import append_item_rows, build_item_rows_from_shopify
 from .taxes import (
@@ -33,6 +33,10 @@ def get_fulfillment_status_to_exclude(shopify_setting_doc, order_fulfillment_sta
         if row.shopify_fulfillment_status
     }
     return status in excluded
+
+
+def is_pos_order(data: dict) -> bool:
+    return (data.get("sourceName") or "").strip().lower() == "pos"
 
 
 def _existing_sales_order(marketplace_order_id: str, marketplace: str) -> dict | None:
@@ -87,6 +91,11 @@ def _set_customer_and_addresses(new_sales_order, data: dict, setting_doc: str) -
     new_sales_order.contact_person = frappe.get_value(
         "Customer", new_sales_order.customer, "customer_primary_contact"
     )
+
+    if is_pos_order(data):
+        # walk-in sale — no address expected, skip resolution entirely
+        # (avoids the internal "Shopify Address Missing" log in customer.py too)
+        return
 
     if data.get("billingAddressMatchesShippingAddress", True):
         addr = get_shopify_address(data.get("shippingAddress"), new_sales_order.customer)
@@ -305,4 +314,16 @@ def create_shopify_sales_order(data: dict, setting_doc: str, is_return: bool, sy
             frappe.log_error(
                 title="Payment Entry Creation Error",
                 message=f"SO {new_sales_order.name}\nTraceback: {frappe.get_traceback()}",
+            )
+
+    if is_pos_order(data):
+        try:
+            from .items import extract_pos_serial_map
+            serial_map = extract_pos_serial_map(data)
+            if serial_map:
+                create_pos_sales_invoice(new_sales_order.name, setting_doc, serial_map)
+        except Exception:
+            frappe.log_error(
+                title=f"Shopify POS Sales Invoice Trigger Error - {new_sales_order.name}",
+                message=frappe.get_traceback(),
             )
