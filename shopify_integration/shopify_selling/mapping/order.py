@@ -133,16 +133,14 @@ def _set_sales_type(new_sales_order, data: dict) -> None:
 def _set_discount_codes(new_sales_order, data: dict) -> None:
     new_sales_order.custom_shopify_discount_codes = ",".join(data.get("discountCodes", []))
 
-    coupon_code, discount_reason = "", ""
+    discount_reason = ""
     for edge in data.get("discountApplications", {}).get("edges", []):
         node = edge.get("node", {})
-        if node.get("__typename") == "DiscountCodeApplication":
-            coupon_code = node.get("code") or coupon_code
-        elif node.get("__typename") == "ManualDiscountApplication":
+        if node.get("__typename") == "ManualDiscountApplication":
             discount_reason = node.get("description") or node.get("title") or discount_reason
+        # coupon_code intentionally not set — Shopify's raw code lives in
+        # custom_shopify_discount_codes; ERPNext's Coupon Code doctype isn't used here
 
-    if coupon_code:
-        new_sales_order.coupon_code = coupon_code
     if discount_reason:
         new_sales_order.custom_discount_reason = discount_reason
 
