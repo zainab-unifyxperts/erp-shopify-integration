@@ -4,8 +4,7 @@ sync and doesn't need to live in the same module.
 """
 
 import frappe
-# from erpnext.stock.doctype.delivery_note.delivery_note import make_sales_invoice
-from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
+from erpnext.stock.doctype.delivery_note.delivery_note import make_sales_invoice
 
 
 @frappe.whitelist()
@@ -29,43 +28,6 @@ def create_sales_invoice(doc, function=None) -> None:
         frappe.log_error(
             title="Sales Invoice Creation Error",
             message=f"Delivery Note: {delivery_note_name}\nTraceback:\n{frappe.get_traceback()}",
-        )
-
-def create_pos_sales_invoice(sales_order_name: str, setting_doc: str, serial_map: dict) -> None:
-    """
-    Creates and submits a Sales Invoice (update_stock=1) directly from a
-    submitted POS Sales Order. Serial numbers are assigned straight onto
-    the Sales Invoice Item row — never stored on Sales Order Item.
-    """
-    try:
-        si = make_sales_invoice(sales_order_name)
-        si.update_stock = 1
-
-        for item in si.items:
-            serial_no = serial_map.get(item.item_code)
-            if serial_no:
-                item.serial_no = serial_no
-
-        si.insert()
-        si.submit()
-
-        allocated = _allocate_advance_payment(si, sales_order_name)
-
-        if si.grand_total > 0 and not allocated:
-            frappe.log_error(
-                title=f"Shopify POS Invoice Unpaid - {sales_order_name}",
-                message=(
-                    f"Sales Invoice {si.name} created with grand_total {si.grand_total} "
-                    f"but no advance Payment Entry was found to reconcile against it. "
-                    f"Order may be missing a Shopify transaction/webhook."
-                ),
-            )
-            # send_pos_sync_alert(...) — same alert mechanism as serial failures
-
-    except Exception:
-        frappe.log_error(
-            title=f"Shopify POS Sales Invoice Failed - {sales_order_name}",
-            message=f"Traceback:\n{frappe.get_traceback()}",
         )
 
 
