@@ -8,32 +8,35 @@ from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
 
 
 def validate_serial_map(sales_order_name: str, serial_map: dict) -> list[str]:
-    """
-    Checks that every serialized item (has_serial_no=1) on the Sales Order
-    has a valid, available serial number. Non-serialized items are skipped.
-    """
     problems = []
     so_items = frappe.get_all(
-        "Sales Order Item", filters={"parent": sales_order_name}, fields=["item_code"]
+        "Sales Order Item", filters={"parent": sales_order_name}, fields=["item_code", "qty"]
     )
 
     for row in so_items:
         item_code = row.item_code
         if not frappe.db.get_value("Item", item_code, "has_serial_no"):
-            continue  # not a serialized item type - no serial expected
+            continue
 
-        serial_no = serial_map.get(item_code)
-        if not serial_no:
+        serials = serial_map.get(item_code) or []
+        if not serials:
             problems.append(f"{item_code}: No serial number captured (item requires a serial)")
             continue
 
-        if not frappe.db.exists("Serial No", serial_no):
-            problems.append(f"{item_code}: Serial No '{serial_no}' not found in ERPNext")
+        expected_qty = int(row.qty)
+        if len(serials) != expected_qty:
+            problems.append(
+                f"{item_code}: Expected {expected_qty} serial(s), got {len(serials)} ({', '.join(serials)})"
+            )
             continue
 
-        status = frappe.db.get_value("Serial No", serial_no, "status")
-        if status != "Active":
-            problems.append(f"{item_code}: Serial No '{serial_no}' is '{status}', not Active/available")
+        for serial_no in serials:
+            if not frappe.db.exists("Serial No", serial_no):
+                problems.append(f"{item_code}: Serial No '{serial_no}' not found in ERPNext")
+                continue
+            status = frappe.db.get_value("Serial No", serial_no, "status")
+            if status != "Active":
+                problems.append(f"{item_code}: Serial No '{serial_no}' is '{status}', not Active/available")
 
     return problems
 
@@ -76,9 +79,9 @@ def create_pos_sales_invoice(sales_order_name: str, setting_doc: str, serial_map
         si.update_stock = 1
 
         for item in si.items:
-            serial_no = serial_map.get(item.item_code)
-            if serial_no:
-                item.serial_no = serial_no
+            serials = serial_map.get(item.item_code)
+            if serials:
+                item.serial_no = "\n".join(serials)
 
         si.insert()
         si.submit()
