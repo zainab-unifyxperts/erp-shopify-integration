@@ -50,6 +50,7 @@ def create_pos_sales_invoice(sales_order_name: str, setting_doc: str, serial_map
     the failure is logged and alerted, and the order remains eligible for
     automatic retry on the next sync once the serial issue is resolved.
     """
+    marketplace_order_id = frappe.db.get_value("Sales Order", sales_order_name, "marketplace_order_id")
     existing_si = frappe.db.exists(
         "Sales Invoice",
         {"custom_sales_order": sales_order_name, "docstatus": ["!=", 2]},
@@ -61,7 +62,9 @@ def create_pos_sales_invoice(sales_order_name: str, setting_doc: str, serial_map
     problems = validate_serial_map(sales_order_name, serial_map)
     if problems:
         message = (
-            f"Sales Invoice not created for Sales Order {sales_order_name}.\n\n"
+            f"Shopify Order: {marketplace_order_id}\n"
+            f"Sales Order: {sales_order_name}\n\n"
+            f"Sales Invoice not created.\n\n"
             f"Problems found:\n" + "\n".join(f"- {p}" for p in problems) +
             f"\n\nResolve the serial number issue(s) in ERPNext, then re-run "
             f"the Shopify sync - this order will be retried automatically."
@@ -90,9 +93,12 @@ def create_pos_sales_invoice(sales_order_name: str, setting_doc: str, serial_map
 
         if si.grand_total > 0 and not allocated:
             message = (
-                f"Sales Invoice {si.name} created with grand_total {si.grand_total} "
-                f"but no advance Payment Entry was found to reconcile against it. "
-                f"Order may be missing a Shopify transaction/webhook."
+                f"Shopify Order: {marketplace_order_id}\n"
+                f"Sales Order: {sales_order_name}\n"
+                f"Sales Invoice: {si.name}\n\n"
+                f"Created with grand_total {si.grand_total} but no advance Payment "
+                f"Entry was found to reconcile against it. Order may be missing a "
+                f"Shopify transaction/webhook."
             )
             frappe.log_error(title=f"Shopify POS Invoice Unpaid - {sales_order_name}", message=message)
             send_pos_sync_alert(setting_doc, sales_order_name, "Invoice Unpaid", message)
@@ -105,12 +111,15 @@ def create_pos_sales_invoice(sales_order_name: str, setting_doc: str, serial_map
             frappe.delete_doc("Sales Invoice", si.name, force=True, ignore_permissions=True)
             frappe.db.commit()
 
-        message = f"Traceback:\n{frappe.get_traceback()}"
+        message = (
+            f"Shopify Order: {marketplace_order_id}\n"
+            f"Sales Order: {sales_order_name}\n\n"
+            f"Traceback:\n{frappe.get_traceback()}"
+        )
         frappe.log_error(
             title=f"Shopify POS Sales Invoice Failed - {sales_order_name}",
             message=message,
         )
-        send_pos_sync_alert(setting_doc, sales_order_name, "Sales Invoice Failed", message)
 
 
 def send_pos_sync_alert(setting_doc: str, order_name: str, subject: str, message: str) -> None:
