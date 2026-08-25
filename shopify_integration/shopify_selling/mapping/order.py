@@ -286,7 +286,27 @@ def create_shopify_sales_order(data: dict, setting_doc: str, is_return: bool, sy
 
     _apply_discount(new_sales_order, data, taxes_included, vat_rate)
 
-    item_rows = build_item_rows_from_shopify(data, setting_doc, taxes_included, vat_rate)
+    item_rows, missing_sku, missing_item_name = (
+        build_item_rows_from_shopify(
+            data,
+            setting_doc,
+            taxes_included,
+            vat_rate,
+        )
+    )
+    if item_rows is None:
+        frappe.log_error(
+            title="Shopify Sales Order Not Created - Missing Item",
+            message=(
+                f"Shopify Order: {data.get('name')}\n"
+                f"Missing SKU: {missing_sku}\n"
+                f"Item Name: {missing_item_name}\n\n"
+                f"The Item does not exist in ERPNext and "
+                f"'Create Missing Items' is disabled.\n"
+                f"Shopify Integration Settings: {setting_doc}"
+            ),
+        )
+        return
     append_item_rows(new_sales_order, item_rows)
 
     _build_taxes(

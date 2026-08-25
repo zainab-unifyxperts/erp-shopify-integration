@@ -1,6 +1,5 @@
 {
  "actions": [],
- "allow_bulk_edit": 1,
  "allow_rename": 1,
  "autoname": "field:shop_name",
  "creation": "2024-04-10 23:22:58.424848",
@@ -39,7 +38,8 @@
   "sync_setting_tab",
   "order_syncing_start_date",
   "sync_orders",
-  "order_sync_duration"
+  "order_sync_duration",
+  "auto_create_items"
  ],
  "fields": [
   {
@@ -221,11 +221,17 @@
    "fieldname": "client_id",
    "fieldtype": "Data",
    "label": "Client Id"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_create_items",
+   "fieldtype": "Check",
+   "label": "Auto Create Items"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-16 10:23:21.585806",
+ "modified": "2026-08-25 08:50:16.430604",
  "modified_by": "Administrator",
  "module": "Shopify Integration",
  "name": "Shopify Integration Settings",

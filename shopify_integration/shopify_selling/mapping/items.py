@@ -9,14 +9,31 @@ import frappe
 from .taxes import _get_money_amount, get_shopify_account  # noqa: F401 (account used by callers)
 
 
-def get_shopify_item_code(sku: str, name: str, setting_doc: str) -> str:
+def get_shopify_item_code(sku: str, name: str, setting_doc: str) -> str | None:
     """
-    Creates an Item in ERPNext if it doesn't already exist for this SKU.
+    Returns the ERPNext Item code.
+
+    If the Item does not exist:
+    - Creates it when Create Missing Items is enabled.
+    - Returns None when disabled.
     """
     if frappe.db.exists("Item", {"item_code": sku}):
         return sku
-    else:
-        frappe.log_error(title=f"Sales Order Item does not exist", message=f"Item {sku} does not exist, please create the item.")
+    settings = frappe.get_cached_doc(
+        "Shopify Integration Settings",
+        setting_doc,
+    )
+    if not settings.auto_create_items:
+        return None
+    item_doc = frappe.get_doc({
+        "doctype": "Item",
+        "item_code": sku,
+        "item_name": name or sku,
+        "item_group": settings.default_item_group,
+        "stock_uom": settings.default_uom,
+    })
+    item_doc.insert(ignore_permissions=True)
+    return item_doc.name
 
 
 def extract_pos_serial_no(line_item: dict) -> str | None:
@@ -43,61 +60,101 @@ def extract_pos_serial_map(data: dict) -> dict[str, str]:
             serial_map[node["sku"]] = serial_no
     return serial_map
 
-def create_shopify_so_item_row(data: dict, setting_doc: str) -> Optional[dict]:
+def create_shopify_so_item_row(
+    data: dict, setting_doc: str
+) -> tuple[dict | None, str | None, str | None]:
     """
-    Builds a single Sales Order Item row dict from a Shopify GraphQL line item node.
-    Returns None if the item's current quantity is 0 (fully cancelled/refunded line).
+    Builds a single Sales Order Item row.
+    Returns:
+        item_row, missing_sku, missing_item_name
     """
     if data.get("currentQuantity") == 0:
-        return None
+        return None, None, None
 
-    row = {
-        "item_code": get_shopify_item_code(data["sku"], data["name"], setting_doc),
+    sku = data.get("sku")
+    name = data.get("name")
+    item_code = get_shopify_item_code(
+        sku,
+        name,
+        setting_doc,
+    )
+    if not item_code:
+        return None, sku, name
+    return {
+        "item_code": item_code,
         "qty": data["currentQuantity"],
         "rate": _get_money_amount(data.get("discountedUnitPriceSet")),
-        "custom_sku": data["sku"],
+        "custom_sku": sku,
         "custom_shopify_line_item_id": data["id"],
-    }
-
-    return row
+    }, None, None
 
 
 def build_item_rows_from_shopify(
-    data: dict, setting_doc: str, taxes_included: bool, vat_rate: float
-) -> list[dict]:
+    data: dict,
+    setting_doc: str,
+    taxes_included: bool,
+    vat_rate: float,
+) -> tuple[list[dict] | None, str | None, str | None]:
     """
-    Builds all item rows for an order, converting tax-inclusive prices to
-    base (net) rate where applicable. Every stock item row gets a warehouse
-    (defaults to the settings' backlog_warehouse) since ERPNext requires it
-    at insert time.
+    Builds all Sales Order item rows.
+    Returns:
+        item_rows, missing_sku, missing_item_name
+
+    If an Item is missing and automatic Item creation is disabled,
+    item_rows will be None.
     """
     default_warehouse = frappe.get_value(
-        "Shopify Integration Settings", setting_doc, "backlog_warehouse"
+        "Shopify Integration Settings",
+        setting_doc,
+        "backlog_warehouse",
     )
 
     item_rows = []
     for edge in data.get("lineItems", {}).get("edges", []):
         node = edge.get("node", {})
-        item_row = create_shopify_so_item_row(node, setting_doc)
+        item_row, missing_sku, missing_item_name = (
+            create_shopify_so_item_row(
+                node,
+                setting_doc,
+            )
+        )
+        if missing_sku:
+            return None, missing_sku, missing_item_name
         if not item_row:
             continue
 
-        shop_unit_price = _get_money_amount(node.get("discountedUnitPriceSet"))
+        shop_unit_price = _get_money_amount(
+            node.get("discountedUnitPriceSet")
+        )
         if taxes_included and vat_rate > 0:
-            item_row["rate"] = round(shop_unit_price / (1 + vat_rate), 5)
+            item_row["rate"] = round(
+                shop_unit_price / (1 + vat_rate),
+                5,
+            )
         else:
-            item_row["rate"] = round(shop_unit_price, 5)
+            item_row["rate"] = round(
+                shop_unit_price,
+                5,
+            )
 
         try:
-            item_row["qty"] = int(node.get("quantity", item_row.get("qty", 1)))
+            item_row["qty"] = int(
+                node.get(
+                    "quantity",
+                    item_row.get("qty", 1),
+                )
+            )
         except (TypeError, ValueError):
             pass
 
-        item_row["amount"] = round(item_row["qty"] * item_row["rate"], 5)
+        item_row["amount"] = round(
+            item_row["qty"] * item_row["rate"],
+            5,
+        )
         item_row["warehouse"] = default_warehouse
         item_rows.append(item_row)
 
-    return item_rows
+    return item_rows, None, None
 
 
 def append_item_rows(new_sales_order, item_rows: list[dict]) -> None:
