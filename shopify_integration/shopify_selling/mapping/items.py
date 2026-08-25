@@ -19,8 +19,21 @@ def get_shopify_item_code(sku: str, name: str, setting_doc: str) -> str | None:
     """
     if frappe.db.exists("Item", {"item_code": sku}):
         return sku
-    else:
-        frappe.log_error(title=f"Sales Order Item does not exist", message=f"Item {sku} does not exist, please create the item.")
+    settings = frappe.get_cached_doc(
+        "Shopify Integration Settings",
+        setting_doc,
+    )
+    if not settings.auto_create_items:
+        return None
+    item_doc = frappe.get_doc({
+        "doctype": "Item",
+        "item_code": sku,
+        "item_name": name or sku,
+        "item_group": settings.default_item_group,
+        "stock_uom": settings.default_uom,
+    })
+    item_doc.insert(ignore_permissions=True)
+    return item_doc.name
 
 
 def extract_pos_serial_list(line_item: dict) -> list[str]:
