@@ -238,34 +238,3 @@ app_license = "mit"
 #                  ]
 #             }
 # }
-
-def _patch_taxjar_skip_shopify_orders():
-    """
-    Prevents TaxJar's set_sales_tax hook from running on Shopify-synced
-    Sales Orders (Shopify computes/reports tax itself; TaxJar should only
-    apply to manually-created orders in ERPNext).
-
-    Implemented as a runtime monkey-patch rather than editing
-    taxjar_integration directly, since that app is shared across other
-    projects and must remain unmodified.
-    """
-    try:
-        from taxjar_integration.taxjar_integration import taxjar_integration as taxjar_mod
-    except ImportError:
-        return  # taxjar_integration isn't installed on this site - nothing to patch
-
-    if getattr(taxjar_mod.set_sales_tax, "_shopify_patched", False):
-        return  # already patched (avoids double-wrapping on repeated imports)
-
-    original_set_sales_tax = taxjar_mod.set_sales_tax
-
-    def patched_set_sales_tax(doc, method=None):
-        if doc.get("marketplace") == "Shopify":
-            return
-        return original_set_sales_tax(doc, method)
-
-    patched_set_sales_tax._shopify_patched = True
-    taxjar_mod.set_sales_tax = patched_set_sales_tax
-
-
-_patch_taxjar_skip_shopify_orders()
