@@ -19,45 +19,37 @@ def get_shopify_item_code(sku: str, name: str, setting_doc: str) -> str | None:
     """
     if frappe.db.exists("Item", {"item_code": sku}):
         return sku
-    settings = frappe.get_cached_doc(
-        "Shopify Integration Settings",
-        setting_doc,
-    )
-    if not settings.auto_create_items:
-        return None
-    item_doc = frappe.get_doc({
-        "doctype": "Item",
-        "item_code": sku,
-        "item_name": name or sku,
-        "item_group": settings.default_item_group,
-        "stock_uom": settings.default_uom,
-    })
-    item_doc.insert(ignore_permissions=True)
-    return item_doc.name
+    else:
+        frappe.log_error(title=f"Sales Order Item does not exist", message=f"Item {sku} does not exist, please create the item.")
 
 
-def extract_pos_serial_no(line_item: dict) -> str | None:
+def extract_pos_serial_list(line_item: dict) -> list[str]:
     """
-    Pulls the Serial No from a Shopify POS line item's custom attributes.
-    Returns None for non-POS / non-serialized line items.
+    Pulls Serial No(s) from a Shopify POS line item's custom attributes.
+    Serializer writes multiple serials for qty > 1 as a single
+    comma-separated value - this splits and cleans them into a list.
+    Returns an empty list for non-POS / non-serialized line items.
     """
     for attr in line_item.get("customAttributes", []):
         if attr.get("key", "").strip().upper() in ("SN", "SERIAL NUMBER", "SERIAL NO"):
-            return attr.get("value", "").strip() or None
-    return None
-    
+            raw = attr.get("value", "").strip()
+            if not raw:
+                return []
+            return [s.strip() for s in raw.split(",") if s.strip()]
+    return []
 
-def extract_pos_serial_map(data: dict) -> dict[str, str]:
+
+def extract_pos_serial_map(data: dict) -> dict[str, list[str]]:
     """
-    Builds {item_code: serial_no} across all line items in a POS order.
-    Only includes items that actually carry a serial custom attribute.
+    Builds {item_code: [serial_no, ...]} across all line items in a POS order.
+    Only includes items that actually carry serial custom attributes.
     """
     serial_map = {}
     for edge in data.get("lineItems", {}).get("edges", []):
         node = edge.get("node", {})
-        serial_no = extract_pos_serial_no(node)
-        if serial_no and node.get("sku"):
-            serial_map[node["sku"]] = serial_no
+        serials = extract_pos_serial_list(node)
+        if serials and node.get("sku"):
+            serial_map[node["sku"]] = serials
     return serial_map
 
 def create_shopify_so_item_row(

@@ -8,9 +8,9 @@ import datetime
 
 import frappe
 from frappe.utils import add_months, add_to_date, get_datetime, now_datetime
-from shopify_integration.shopify_selling.invoice import create_pos_sales_invoice
+from shopify_integration.shopify_selling.billing.pos_invoice import create_pos_sales_invoice
 from .customer import get_shopify_address, get_shopify_customer, get_shopify_mo_id
-from .items import append_item_rows, build_item_rows_from_shopify
+from .items import append_item_rows, build_item_rows_from_shopify, extract_pos_serial_map
 from .taxes import (
     _get_money_amount,
     _get_money_currency,
@@ -125,9 +125,6 @@ def _set_sales_type(new_sales_order, data: dict) -> None:
 
     if company_info and company_info.get("id") and company_info.get("name"):
         new_sales_order.custom_customer_company = company_info["name"]
-        new_sales_order.custom_sales_type = "B2B"
-    else:
-        new_sales_order.custom_sales_type = "B2C"
 
 
 def _set_discount_codes(new_sales_order, data: dict) -> None:
@@ -219,8 +216,8 @@ def _set_payment_schedule(new_sales_order, data: dict) -> None:
 
 def create_shopify_sales_order(data: dict, setting_doc: str, is_return: bool, sync_payment_entries_fn=None) -> None:
     """
-    Creates (or, if already existing, syncs payments for) an ERPNext Sales
-    Order from Shopify GraphQL order data.
+    Creates (or, if already existing, syncs payments + retries POS invoice
+    for) an ERPNext Sales Order from Shopify GraphQL order data.
 
     `sync_payment_entries_fn` is injected so this module doesn't have a hard
     import dependency on the payments module (avoids circular imports).
@@ -240,6 +237,7 @@ def create_shopify_sales_order(data: dict, setting_doc: str, is_return: bool, sy
     if existing:
         if existing.creation < add_months(now_datetime(), -1):
             return
+
         if sync_payment_entries_fn:
             try:
                 sync_payment_entries_fn(data.get("transactions", []), existing.name, setting_doc)
@@ -247,6 +245,16 @@ def create_shopify_sales_order(data: dict, setting_doc: str, is_return: bool, sy
                 frappe.log_error(
                     title="Payment Entry Sync Error (existing SO)",
                     message=f"SO {existing.name}\nTraceback: {frappe.get_traceback()}",
+                )
+
+        if is_pos_order(data):
+            try:
+                serial_map = extract_pos_serial_map(data)
+                create_pos_sales_invoice(existing.name, setting_doc, serial_map)
+            except Exception:
+                frappe.log_error(
+                    title=f"Shopify POS Sales Invoice Trigger Error - {existing.name}",
+                    message=frappe.get_traceback(),
                 )
         return
 
@@ -276,7 +284,6 @@ def create_shopify_sales_order(data: dict, setting_doc: str, is_return: bool, sy
     )
     new_sales_order.ignore_pricing_rule = 1
     new_sales_order.custom_fully_paid = data.get("fullyPaid")
-    # new_sales_order.custom_notes = data.get("note")
     new_sales_order.custom_shopify_order_id_number = data.get("id")
 
     _set_discount_codes(new_sales_order, data)
@@ -336,10 +343,8 @@ def create_shopify_sales_order(data: dict, setting_doc: str, is_return: bool, sy
 
     if is_pos_order(data):
         try:
-            from .items import extract_pos_serial_map
             serial_map = extract_pos_serial_map(data)
-            if serial_map:
-                create_pos_sales_invoice(new_sales_order.name, setting_doc, serial_map)
+            create_pos_sales_invoice(new_sales_order.name, setting_doc, serial_map)
         except Exception:
             frappe.log_error(
                 title=f"Shopify POS Sales Invoice Trigger Error - {new_sales_order.name}",
