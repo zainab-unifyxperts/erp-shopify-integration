@@ -88,15 +88,61 @@ def get_shopify_contact(contact_data: dict, customer: str) -> str:
     return contact_doc.name
 
 
-def get_shopify_address(address_data: dict, customer: str) -> str | None:
-    """
-    Creates an Address doc for a given customer if the payload is usable.
-    Returns None (and logs) if address data is missing/invalid - callers
-    MUST handle the None case rather than blindly assigning it.
-    """
+def get_shopify_address(
+    address_data: dict,
+    customer: str,
+    setting_doc: str,
+) -> str | None:
+
     if not address_data or not address_data.get("address1"):
         return None
 
+    existing_address = frappe.db.get_value(
+        "Address",
+        {
+            "address_line1": address_data.get("address1"),
+            "address_line2": address_data.get("address2"),
+            "city": address_data.get("city"),
+            "state": address_data.get("province"),
+            "country": address_data.get("country"),
+            "pincode": address_data.get("zip"),
+        },
+        "name",
+    )
+    if existing_address:
+        address_doc = frappe.get_doc("Address", existing_address)
+        already_linked = any(
+            link.link_doctype == "Customer"
+            and link.link_name == customer
+            for link in address_doc.links
+        )
+        if not already_linked:
+            address_doc.append(
+                "links",
+                get_link_row("Customer", customer),
+            )
+            address_doc.save(ignore_permissions=True)
+        return existing_address
+    settings = frappe.get_cached_doc(
+        "Shopify Integration Settings",
+        setting_doc,
+    )
+    if not settings.auto_create_address:
+        frappe.log_error(
+            title="Shopify Sales Order Not Created - Missing Address",
+            message=(
+                f"Customer: {customer}\n"
+                f"Address Line 1: {address_data.get('address1')}\n"
+                f"City: {address_data.get('city')}\n"
+                f"State: {address_data.get('province')}\n"
+                f"Country: {address_data.get('country')}\n"
+                f"Postal Code: {address_data.get('zip')}\n\n"
+                f"The Address does not exist in ERPNext and "
+                f"'Auto Create Address' is disabled.\n"
+                f"Shopify Integration Settings: {setting_doc}"
+            ),
+        )
+        return None
     try:
         address_doc = frappe.new_doc("Address")
         address_doc.address_title = address_data.get("name") or customer
@@ -106,13 +152,20 @@ def get_shopify_address(address_data: dict, customer: str) -> str | None:
         address_doc.country = address_data.get("country")
         address_doc.state = address_data.get("province")
         address_doc.pincode = address_data.get("zip")
-        address_doc.append("links", get_link_row("Customer", customer))
+        address_doc.append(
+            "links",
+            get_link_row("Customer", customer),
+        )
         address_doc.save(ignore_permissions=True)
         return address_doc.name
     except Exception:
         frappe.log_error(
             title="Shopify Address Creation Error",
-            message=f"Traceback:\n{frappe.get_traceback()}\n\nCustomer: {customer}\nPayload: {address_data}",
+            message=(
+                f"Traceback:\n{frappe.get_traceback()}\n\n"
+                f"Customer: {customer}\n"
+                f"Payload: {address_data}"
+            ),
         )
         return None
 

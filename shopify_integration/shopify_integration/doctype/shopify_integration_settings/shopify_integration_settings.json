@@ -39,7 +39,8 @@
   "order_syncing_start_date",
   "sync_orders",
   "order_sync_duration",
-  "auto_create_items"
+  "auto_create_items",
+  "auto_create_address"
  ],
  "fields": [
   {
@@ -227,11 +228,17 @@
    "fieldname": "auto_create_items",
    "fieldtype": "Check",
    "label": "Auto Create Items"
+  },
+  {
+   "default": "0",
+   "fieldname": "auto_create_address",
+   "fieldtype": "Check",
+   "label": "Auto Create Address"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-25 08:50:16.430604",
+ "modified": "2026-08-25 09:57:24.290032",
  "modified_by": "Administrator",
  "module": "Shopify Integration",
  "name": "Shopify Integration Settings",

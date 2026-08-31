@@ -77,7 +77,7 @@ def _set_incoterm_from_tags(new_sales_order, tags: list) -> None:
             return
 
 
-def _set_customer_and_addresses(new_sales_order, data: dict, setting_doc: str) -> None:
+def _set_customer_and_addresses(new_sales_order, data: dict, setting_doc: str) -> bool:
     customer_details = data.get("customer") or {}
     new_sales_order.customer = get_shopify_customer(customer_details, setting_doc)
     new_sales_order.contact_email = customer_details.get("email") or ""
@@ -95,25 +95,27 @@ def _set_customer_and_addresses(new_sales_order, data: dict, setting_doc: str) -
     if is_pos_order(data):
         # walk-in sale — no address expected, skip resolution entirely
         # (avoids the internal "Shopify Address Missing" log in customer.py too)
-        return
+        return True
 
     if data.get("billingAddressMatchesShippingAddress", True):
-        addr = get_shopify_address(data.get("shippingAddress"), new_sales_order.customer)
+        addr = get_shopify_address(data.get("shippingAddress"),new_sales_order.customer,setting_doc)
         new_sales_order.customer_address = addr
         new_sales_order.shipping_address_name = addr
     else:
         new_sales_order.customer_address = get_shopify_address(
-            data.get("billingAddress"), new_sales_order.customer
+            data.get("billingAddress"),
+            new_sales_order.customer,
+            setting_doc,
         )
         new_sales_order.shipping_address_name = get_shopify_address(
-            data.get("shippingAddress"), new_sales_order.customer
+            data.get("shippingAddress"),
+            new_sales_order.customer,
+            setting_doc,
         )
 
     if not new_sales_order.customer_address:
-        frappe.log_error(
-            title="Sales Order Missing Address",
-            message=f"Customer {new_sales_order.customer} / Order {data.get('name')} has no resolvable address",
-        )
+        return False
+    return True
 
 
 def _set_sales_type(new_sales_order, data: dict) -> None:
@@ -271,7 +273,8 @@ def create_shopify_sales_order(data: dict, setting_doc: str, is_return: bool, sy
 
     new_sales_order.currency = _resolve_currency(data, setting_doc)
 
-    _set_customer_and_addresses(new_sales_order, data, setting_doc)
+    if not _set_customer_and_addresses(new_sales_order, data, setting_doc):
+        return
 
     new_sales_order.company = frappe.get_value("Shopify Integration Settings", setting_doc, "company")
     new_sales_order.naming_series = frappe.get_value("Marketplace", marketplace, "naming_series")
