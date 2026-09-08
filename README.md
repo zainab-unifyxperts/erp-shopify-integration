@@ -75,6 +75,380 @@ We store the following configurations in the setting doc for Shopify Integration
 - We can also set the order sync start date in the Shopify Integration Settings
 - **Note**: run `bench migrate` every time you install a new app on your site
 
+
+# ERP Shopify Integration — Codebase Analysis
+
+## Overview
+
+This document covers two Frappe/ERPNext apps that together sync Shopify orders into ERPNext:
+
+| App | Repo | Purpose |
+|---|---|---|
+| `marketplace` | `erp-marketplace` | Stores Marketplace and Marketplace Order ID doctypes; adds custom fields to core ERPNext doctypes (Sales Order, Customer, Item, etc.) |
+| `shopify_integration` | `erp-shopify-integration` | Fetches orders from Shopify via GraphQL, maps them to ERPNext Sales Orders, and creates Payment Entries and Sales Invoices |
+
+**Stack:** Ubuntu 22.04 · ERPNext v15 · Frappe · ShopifyAPI (GraphQL, version `2024-04`)
+
+**Cron:** Every 3 minutes (configurable in `hooks.py`) — `"*/3 * * * *"` → `shopify_integration.shopify_selling.sync.shopify_order_sync_job`
+
+---
+
+## High-Level Flow
+
+```
+Shopify GraphQL API
+       ↓
+shopify_order_sync_job()          ← cron entrypoint
+       ↓
+enqueue_shopify_sync_orders()     ← whitelisted; also called by the Sync Orders button
+       ↓  (background job)
+sync_shopify_orders()             ← fetches all orders, paginates
+       ↓  (per order)
+create_shopify_sales_order()      ← maps one Shopify order → ERPNext SO
+       ↓
+  ┌────────────────────────────────────────────┐
+  │  Customer   Address   Items   Taxes   Tags │
+  └────────────────────────────────────────────┘
+       ↓
+   SO.save() + SO.submit()
+       ↓
+  sync_payment_entries()          ← PE per transaction
+       ↓ (if POS)
+  create_pos_sales_invoice()      ← SI with update_stock=1
+```
+
+---
+
+## 1. Sync Orders Button — Specific Store
+
+**Location:** `shopify_integration/shopify_integration/doctype/shopify_integration_settings/`
+
+**Doctype field:**
+```json
+{ "fieldname": "sync_orders", "fieldtype": "Button", "label": "Sync Orders" }
+```
+
+**JS handler** (`shopify_integration_settings.js`):
+```javascript
+sync_orders(frm) {
+    frappe.call({
+        method: "shopify_integration.shopify_selling.sync.enqueue_shopify_sync_orders",
+        args: {
+            doc: frm.doc.name,       // ← the specific store's settings doc
+            use_setting_date: true,
+        },
+        freeze: true,
+        freeze_message: __("Queuing Shopify order sync..."),
+    });
+}
+```
+
+The button is **per-store** because it passes `frm.doc.name` — whichever `Shopify Integration Settings` document is currently open in the UI. Each store has its own settings document with its own API credentials, company, and sync dates.
+
+---
+
+## 2. Function That Gets Enqueued
+
+**File:** `shopify_integration/shopify_selling/sync.py`
+
+### Cron entrypoint
+```python
+def shopify_order_sync_job() -> None:
+    for doc in frappe.get_list("Shopify Integration Settings", {"enabled": 1}):
+        enqueue_shopify_sync_orders(doc.name, use_setting_date=True)
+```
+Loops all enabled stores and enqueues one sync job per store.
+
+### Button / API entrypoint
+```python
+@frappe.whitelist()
+def enqueue_shopify_sync_orders(doc: str, use_setting_date: bool) -> None:
+    ...
+    enqueue(
+        "shopify_integration.shopify_selling.sync.sync_shopify_orders",
+        setting_doc_name=doc,
+        start_date=start_date,
+        timeout=1800,
+    )
+```
+Resolves the `start_date` (either from the settings field or calculated from `order_sync_duration`), then puts the actual worker on the Frappe background queue.
+
+### Actual background worker (enqueued fn)
+```python
+def sync_shopify_orders(setting_doc_name: str, start_date: str) -> None:
+```
+Fetches all Shopify orders created after `start_date` (excluding `CANCELLED`), paginates via `pageInfo.hasNextPage`, and calls `create_shopify_sales_order()` for each order node.
+
+---
+
+## 3. Auto Item Creation in ERP
+
+**File:** `shopify_integration/shopify_selling/mapping/items.py`
+
+**Function:** `get_shopify_item_code(sku, name, setting_doc)`
+
+```python
+def get_shopify_item_code(sku: str, name: str, setting_doc: str) -> str | None:
+    if frappe.db.exists("Item", {"item_code": sku}):
+        return sku                       # item already exists — use it
+
+    settings = frappe.get_cached_doc("Shopify Integration Settings", setting_doc)
+    if not settings.auto_create_items:
+        return None                      # creation disabled → order will be skipped
+
+    item_doc = frappe.get_doc({
+        "doctype": "Item",
+        "item_code": sku,
+        "item_name": name or sku,
+        "item_group": settings.default_item_group,
+        "stock_uom": settings.default_uom,
+    })
+    item_doc.insert(ignore_permissions=True)
+    return item_doc.name
+```
+
+**Setting that controls this:** `auto_create_items` (checkbox on `Shopify Integration Settings`)
+
+**If disabled:** `get_shopify_item_code` returns `None` → `build_item_rows_from_shopify` returns `(None, missing_sku, missing_item_name)` → `create_shopify_sales_order` logs an error ("Missing Item / Create Missing Items is disabled") and **skips the order entirely**.
+
+**Call chain:**
+`build_item_rows_from_shopify()` → `create_shopify_so_item_row()` → `get_shopify_item_code()`
+
+---
+
+## 4. Address Doc Creation for Each Order
+
+**File:** `shopify_integration/shopify_selling/mapping/customer.py`
+
+**Function:** `get_shopify_address(address_data, customer, setting_doc)`
+
+```python
+def get_shopify_address(address_data, customer, setting_doc) -> str | None:
+    # 1. Look up existing Address by full address fields
+    existing_address = frappe.db.get_value("Address", {
+        "address_line1": address_data.get("address1"),
+        "city": address_data.get("city"),
+        "state": address_data.get("province"),
+        "country": address_data.get("country"),
+        "pincode": address_data.get("zip"),
+    }, "name")
+
+    if existing_address:
+        # Ensure it's linked to this customer
+        address_doc.append("links", get_link_row("Customer", customer))
+        return existing_address
+
+    if not settings.auto_create_address:
+        frappe.log_error(...)
+        return None                # order skipped
+
+    # 2. Create new Address doc
+    address_doc = frappe.new_doc("Address")
+    address_doc.address_line1 = address_data.get("address1")
+    address_doc.city = address_data.get("city")
+    address_doc.country = address_data.get("country")
+    address_doc.state = address_data.get("province")
+    address_doc.pincode = address_data.get("zip")
+    address_doc.append("links", get_link_row("Customer", customer))
+    address_doc.save(ignore_permissions=True)
+```
+
+**Setting that controls this:** `auto_create_address` (checkbox on `Shopify Integration Settings`)
+
+**Billing vs Shipping:** If `billingAddressMatchesShippingAddress` is `True` on the Shopify order, the same Address doc is set for both `customer_address` and `shipping_address_name`. Otherwise, `get_shopify_address` is called separately for billing and shipping.
+
+**POS orders:** Address resolution is **skipped entirely** — walk-in sales have no address.
+
+Called from `_set_customer_and_addresses()` in `mapping/order.py`.
+
+---
+
+## 5. Payment Entry (PE) Creation if Order is Paid
+
+**File:** `shopify_integration/shopify_selling/payments.py`
+
+**Function:** `sync_payment_entries(transactions, sales_order_name, setting_doc_name)`
+
+```python
+def sync_payment_entries(transactions, sales_order_name, setting_doc_name=None):
+    if not transactions:
+        return
+
+    # Skip if a submitted Sales Invoice already exists (reconciled differently)
+    if frappe.db.exists("Sales Invoice", {"sales_order": sales_order_name, "docstatus": 1}):
+        return
+
+    for transaction in transactions:
+        payment_id = transaction.get("paymentId")
+        if not payment_id:
+            continue
+
+        # Dedup: skip if a PE with this paymentId already exists (draft or submitted)
+        if frappe.db.exists("Payment Entry", {
+            "reference_no": payment_id,
+            "party": customer,
+            "docstatus": ["!=", 2],
+        }):
+            continue
+
+        create_shopify_payment_entry(transaction, sales_order_name, setting_doc_name)
+```
+
+**Note:** The trigger is the presence of Shopify **transaction records** (each with a `paymentId`), not just a `fullyPaid` boolean. A payment entry is created for every distinct, not-yet-recorded transaction.
+
+**Function:** `create_shopify_payment_entry(data, sales_order_name, setting_doc_name)`
+
+```python
+def create_shopify_payment_entry(data, sales_order_name, setting_doc_name):
+    payment_entry_doc = get_payment_entry(dt="Sales Order", dn=sales_order_name)
+    payment_entry_doc.paid_amount = flt(data["amountSet"]["shopMoney"]["amount"])
+    payment_entry_doc.paid_to = _resolve_paid_to_account(data.get("gateway"), setting_doc_name)
+    payment_entry_doc.reference_no = data["paymentId"]
+    payment_entry_doc.save()
+    payment_entry_doc.submit()
+```
+
+`_resolve_paid_to_account` checks the `Shopify Payment Account Table` child table for a gateway-to-account mapping; falls back to `default_payment_account` on the settings doc.
+
+`sync_payment_entries` is called **twice** in `create_shopify_sales_order`:
+- For a **new SO** — after SO is submitted
+- For an **existing SO** — on re-sync, to catch late/missed transactions
+
+---
+
+## 6. Online Store vs POS (Offline Store) Flow
+
+### Detection
+
+**File:** `shopify_integration/shopify_selling/mapping/order.py`
+
+**Function:** `is_pos_order(data: dict) -> bool`
+
+```python
+def is_pos_order(data: dict) -> bool:
+    return (data.get("sourceName") or "").strip().lower() == "pos"
+```
+
+Shopify sets `sourceName = "pos"` on all orders placed through the POS channel (in-store / offline). Online orders have a different `sourceName` (e.g., `"web"`, `"shopify_draft_order"`) or an empty value.
+
+---
+
+### Online Store Flow → SO → DN → SI
+
+1. `create_shopify_sales_order()` creates and submits the **Sales Order**.
+2. `sync_payment_entries()` creates a **Payment Entry** against the SO.
+3. A **Delivery Note** is created separately from the SO (manually or via fulfillment webhook). The DN updates stock on hand.
+4. On DN submission, a **Sales Invoice** is created from the DN.
+
+```
+SO  →  DN  →  SI
+         ↑
+    stock updated here
+```
+
+The `hooks.py` has a commented-out `doc_events` hook for `Delivery Note → on_submit → create_sales_invoice` in `shopify_finance/finance.py`, indicating this SI creation was previously automatic on DN submit.
+
+---
+
+### Offline Store (POS) Flow → SO → SI (no DN)
+
+1. `create_shopify_sales_order()` creates and submits the **Sales Order**.
+2. `sync_payment_entries()` creates an advance **Payment Entry** against the SO.
+3. `create_pos_sales_invoice()` is called immediately after SO submit.
+
+**File:** `shopify_integration/shopify_selling/billing/pos_invoice.py`
+
+**Function:** `create_pos_sales_invoice(sales_order_name, setting_doc, serial_map)`
+
+```python
+def create_pos_sales_invoice(sales_order_name, setting_doc, serial_map):
+    si = make_sales_invoice(sales_order_name)
+    si.update_stock = 1          # ← key: no DN needed; stock updated by SI directly
+    # Apply serial numbers from POS custom attributes
+    for item in si.items:
+        serials = serial_map.get(item.item_code)
+        if serials:
+            item.serial_no = "\n".join(serials)
+    si.insert()
+    si.submit()
+    _allocate_advance_payment(si, sales_order_name)   # reconciles PE → SI
+```
+
+With `update_stock = 1` set on the SI, **no Delivery Note is created** — ERPNext updates stock directly via the Sales Invoice.
+
+Serial numbers are pulled from Shopify POS order line item `customAttributes` (key `"SN"` / `"SERIAL NUMBER"` / `"SERIAL NO"`) by `extract_pos_serial_map()` and validated before the SI is created.
+
+```
+SO  →  SI (update_stock=1)
+         ↑
+    stock updated here (no DN)
+```
+
+---
+
+### Side-by-Side Comparison
+
+| | Online Store | POS (Offline Store) |
+|---|---|---|
+| **Shopify `sourceName`** | `"web"` / other | `"pos"` |
+| **Detection fn** | `is_pos_order() == False` | `is_pos_order() == True` |
+| **Document flow** | SO → DN → SI | SO → SI |
+| **Delivery Note** | Created (updates stock) | **Not created** |
+| **Stock update mechanism** | Delivery Note | `update_stock = 1` on SI |
+| **Address resolution** | Required (billing + shipping) | **Skipped** (walk-in) |
+| **Serial numbers** | Not handled in this flow | Captured from POS custom attributes |
+| **PE reconciliation** | PE stays against SO | Advance PE allocated to SI via `_allocate_advance_payment()` |
+| **SI field: `update_stock`** | Not set (default 0) | Set to `1` |
+
+---
+
+## Key Settings in `Shopify Integration Settings`
+
+| Field | Type | Purpose |
+|---|---|---|
+| `enabled` | Check | Whether this store is picked up by the cron |
+| `api_key`, `api_secret`, `access_token` | Password | Shopify GraphQL credentials |
+| `company` | Link → Company | ERPNext company for all docs |
+| `marketplace` | Link → Marketplace | Links to the `erp-marketplace` Marketplace doc |
+| `default_item_group` | Link | Used when auto-creating items |
+| `default_uom` | Link | Used when auto-creating items |
+| `auto_create_items` | Check | Whether to create missing ERPNext Items automatically |
+| `auto_create_address` | Check | Whether to create missing Address docs automatically |
+| `default_payment_account` | Link | Fallback account for Payment Entries |
+| `order_syncing_start_date` | Date | Start date used when button is clicked (`use_setting_date=True`) |
+| `order_sync_duration` | Int | Days offset from today; used by cron |
+| `backlog_warehouse` | Link | Default warehouse set on SO item rows |
+| `price_list` | Link | Selling price list applied to SO |
+| `shopify_fulfillment_statuses_to_exclude` | Table | Fulfillment statuses that skip SO creation |
+
+---
+
+## File Reference
+
+```
+erp-shopify-integration/
+└── shopify_integration/
+    ├── hooks.py                              ← cron scheduler config
+    ├── shopify_integration/
+    │   └── doctype/
+    │       └── shopify_integration_settings/
+    │           ├── shopify_integration_settings.json   ← "Sync Orders" Button field
+    │           └── shopify_integration_settings.js     ← Button handler → enqueue_shopify_sync_orders
+    └── shopify_selling/
+        ├── sync.py                           ← shopify_order_sync_job, enqueue_shopify_sync_orders, sync_shopify_orders
+        ├── payments.py                       ← sync_payment_entries, create_shopify_payment_entry
+        ├── billing/
+        │   └── pos_invoice.py               ← create_pos_sales_invoice (POS flow, update_stock=1)
+        └── mapping/
+            ├── order.py                      ← create_shopify_sales_order, is_pos_order
+            ├── items.py                      ← get_shopify_item_code (auto item creation)
+            └── customer.py                   ← get_shopify_customer, get_shopify_address
+
+erp-marketplace/
+└── marketplace/
+    └── (Marketplace, Marketplace Order ID doctypes + custom fields on SO, Customer, Item, etc.)
+```
+
 ### Contributing
 
 Issues and pull requests are welcome. Please open an issue describing the bug or feature before submitting a PR where possible.
