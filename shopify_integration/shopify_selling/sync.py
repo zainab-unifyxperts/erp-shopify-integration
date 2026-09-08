@@ -28,7 +28,7 @@ def shopify_order_sync_job() -> None:
 
 
 @frappe.whitelist()
-def enqueue_shopify_sync_orders(doc: str, use_setting_date: bool) -> None:
+def enqueue_shopify_sync_orders(setting_doc_name: str, use_setting_date: bool) -> None:
     """
     Enqueues a background sync job for one Shopify Integration Settings doc.
 
@@ -37,21 +37,21 @@ def enqueue_shopify_sync_orders(doc: str, use_setting_date: bool) -> None:
     """
     try:
         if use_setting_date:
-            start_date = frappe.get_value("Shopify Integration Settings", doc, "order_syncing_start_date")
+            start_date = frappe.get_value("Shopify Integration Settings", setting_doc_name, "order_syncing_start_date")
         else:
-            duration = frappe.get_value("Shopify Integration Settings", doc, "order_sync_duration")
+            duration = frappe.get_value("Shopify Integration Settings", setting_doc_name, "order_sync_duration")
             start_date = add_to_date(getdate(), days=-(duration or 0))
 
         enqueue(
             "shopify_integration.shopify_selling.sync.sync_shopify_orders",
-            setting_doc_name=doc,
+            setting_doc_name=setting_doc_name,
             start_date=start_date,
             timeout=1800,
         )
     except Exception:
         frappe.log_error(
             title="Enqueue Sync Error",
-            message=f"Could not enqueue sync for {doc}\n{frappe.get_traceback()}",
+            message=f"Could not enqueue sync for {setting_doc_name}\n{frappe.get_traceback()}",
         )
 
 
