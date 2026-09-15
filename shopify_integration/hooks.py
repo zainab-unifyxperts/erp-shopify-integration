@@ -238,3 +238,15 @@ app_license = "mit"
 #                  ]
 #             }
 # }
+
+
+# Duplicate Notification hooks 
+# doc_events = {
+#     "Error Log": {
+#         "before_insert": "shopify_integration.shopify_selling.duplication_notification_handler_api.notification_handler.set_error_deduplication_flags"
+#     },
+# }
+
+# after_migrate = [
+#     "shopify_integration.shopify_selling.duplication_notification_handler_api.notification_handler.add_error_log_index"
+# ]
