@@ -15,7 +15,7 @@ frappe.ui.form.on("Shopify Integration Settings", {
 		frappe.call({
 			method: "shopify_integration.shopify_selling.sync.enqueue_shopify_sync_orders",
 			args: {
-				doc: frm.doc.name,
+				setting_doc_name: frm.doc.name,
 				use_setting_date: true,
 			},
 			freeze: true,
